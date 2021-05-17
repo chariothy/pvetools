@@ -4,6 +4,7 @@ import time
 
 from utils import run, logger
 from vm import list_vm, resume_vm, suspend_vm, ACTIVE_VM
+from ct import list_ct, resume_ct, suspend_ct, ACTIVE_CT
 
 REG_UPS_CHARGE = re.compile(r'battery\.charge\:\s+(\d+)')
 REG_UPS_MFR = re.compile(r'device\.mfr\:\s+(\w+)')
@@ -33,12 +34,19 @@ def get_ups_charge():
 
 
 list_vm()
+#print(ACTIVE_VM)
 
-print(ACTIVE_VM)
+list_ct()
+#print(ACTIVE_CT)
+
 print(UPS_NAME)
 
 for vm_id in ACTIVE_VM:
     suspend_vm(vm_id)
+    time.sleep(1)
+
+for ct_id in ACTIVE_CT:
+    suspend_ct(ct_id)
     time.sleep(1)
     
 ups_charge = 0
@@ -49,6 +57,10 @@ while ups_charge < 100:
 
 for vm_id in ACTIVE_VM:
     resume_vm(vm_id)
+    time.sleep(1)
+    
+for ct_id in ACTIVE_CT:
+    resume_ct(ct_id)
     time.sleep(1)
 
 logger.info(f'[{UPS_NAME}] - UPS recoverd & all VM resumed.')

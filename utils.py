@@ -41,7 +41,5 @@ def run(cmd, echo=False):
 
 
 def date_str(days=0):
-    _date = datetime.now()
-    if days > 0:
-        _date += timedelta(days=days)
+    _date = datetime.now() + timedelta(days=days)
     return _date.strftime("%Y%m%d")
