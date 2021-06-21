@@ -15,7 +15,7 @@ def init():
     if logger is None:
         logger = logging.getLogger(APP_NAME)
         logger.setLevel(logging.INFO)
-        rf_handler = handlers.TimedRotatingFileHandler(path.join('/var/log', f'{APP_NAME}.log'), when='D', interval=1, backupCount=7)
+        rf_handler = handlers.TimedRotatingFileHandler(path.join('/root/pveutils/logs', f'{APP_NAME}.log'), when='D', interval=1, backupCount=7)
         rf_handler.suffix = "%Y-%m-%d_%H-%M-%S.log"
         rf_handler.level = logging.INFO
         rf_handler.setFormatter(logging.Formatter("%(asctime)s - %(message)s"))

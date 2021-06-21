@@ -1,0 +1,25 @@
+#!/bin/bash
+
+case $1 in
+        onbattstart)
+                echo "The UPS has been on battery!" | mail -s "UPS 断电啦！" root
+                logger -t upssched-cmd "The UPS has been on battery!"
+                cd /root/pveutils && /usr/bin/python3 upsd.py
+                ;;
+        onbattlow)
+                echo "The UPS battery is low!" | mail -s "UPS 电量低！！！" root
+                logger -t upssched-cmd "The UPS battery is low!"
+                ;;
+        commbad)
+                echo "Failed to communicate to UPS! Please check UPS ASAP." | mail -s "UPS 通信失败！！请检查！" root
+                logger -t upssched-cmd "Failed to communicate to UPS! Please check UPS ASAP."
+                ;;
+        nocomm)
+                echo "Lost connection to UPS! Please check UPS ASAP." | mail -s "UPS不见啦！！是不是快坏啦？" root
+                logger -t upssched-cmd "Lost connection to UPS! Please check UPS ASAP."
+                ;;
+        *)
+                echo "Unrecognized command: $1" | mail -s "UPS 未知命令" root
+                logger -t upssched-cmd "Unrecognized command: $1"
+                ;;
+esac
