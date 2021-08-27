@@ -24,7 +24,7 @@ ONBATT_TIMEOUT = 3 * 180        # 如果3分钟UPS还是100%，则认为是FAKE 
 def get_ups_charge():
     global UPS_NAME, UPS_LOW, UPS_WARNING
 
-    ups_status = run('upsc ups@10.8.9.2')
+    ups_status = run('upsc ups@dsm')
     #print(ups_status)
 
     global UPS_NAME
@@ -51,9 +51,11 @@ def get_ups_charge():
     return ups_charge
 
 
-logger.info('{} monitor starts: arg - {}'.format(UPS_NAME, ARG))
+header = ('(DRY MODE) ' if ARG == '--pause' else '') + f'[{UPS_NAME}]'
+logger.info(f'{header} monitor starts: arg - {ARG}')
+logger.info(f'(To suspend VM & CT, use --pause)')
 ups_charge = get_ups_charge()
-logger.info('{} battery charge - {} (low - {}, warning - {})'.format(UPS_NAME, ups_charge, UPS_LOW, UPS_WARNING))
+logger.info('{} battery charge - {} (low - {}, warning - {})'.format(header, ups_charge, UPS_LOW, UPS_WARNING))
 
 detect_on_battery = 0
 while detect_on_battery < ONBATT_TIMEOUT:
@@ -65,7 +67,7 @@ while detect_on_battery < ONBATT_TIMEOUT:
     #print(detect_on_battery, ONBATT_TIMEOUT, detect_on_battery < ONBATT_TIMEOUT)
     
 if detect_on_battery >= ONBATT_TIMEOUT:
-    logger.info('{} not on battery within {} seconds, now exiting.'.format(UPS_NAME, ONBATT_TIMEOUT))
+    logger.info('{} not on battery within {} seconds, now exiting.'.format(header, ONBATT_TIMEOUT))
     sys.exit(0)
     
 
@@ -75,7 +77,7 @@ list_vm()
 list_ct()
 #print(ACTIVE_CT)
 
-logger.info('{} is on battery, charge - {} (low - {}, warning - {})'.format(UPS_NAME, ups_charge, UPS_LOW, UPS_WARNING))
+logger.info('{} is on battery, charge - {} (low - {}, warning - {})'.format(header, ups_charge, UPS_LOW, UPS_WARNING))
 
 def suspend_vm_ct():
     for vm_id in ACTIVE_VM:
@@ -101,16 +103,17 @@ old_ups_charge = 0
 while ups_charge < 100:
     ups_charge = get_ups_charge()
     if ups_charge > old_ups_charge:
-        logger.info(f'[{UPS_NAME}] - battery is charging: {ups_charge} (low: {UPS_LOW}, warning: {UPS_WARNING})')
+        logger.info(f'[{header}] - battery is charging: {ups_charge} (low: {UPS_LOW}, warning: {UPS_WARNING})')
     elif ups_charge < old_ups_charge:
-        logger.info(f'[{UPS_NAME}] - battery is discharging: {ups_charge} (low: {UPS_LOW}, warning: {UPS_WARNING})')
+        logger.info(f'[{header}] - battery is discharging: {ups_charge} (low: {UPS_LOW}, warning: {UPS_WARNING})')
         if ups_charge < UPS_WARNING:
-            logger.warn(f'[{UPS_NAME}] - battery is under warning, charge: {ups_charge} (low: {UPS_LOW}, warning: {UPS_WARNING})')
-            logger.warn(f'[{UPS_NAME}] -     pve will be suspended at {UPS_SUSPEND}')
+            logger.warn(f'[{header}] - battery is under warning, charge: {ups_charge} (low: {UPS_LOW}, warning: {UPS_WARNING})')
+            logger.warn(f'[{header}] -     pve will be suspended at {UPS_SUSPEND}')
             if ups_charge < UPS_SUSPEND:
-                logger.warn(f'[{UPS_NAME}] - battery is under {UPS_SUSPEND}, now suspending...')
-                suspend_vm_ct()
-                logger.info(f'[{UPS_NAME}] - All VM has been suspended.')
+                logger.warn(f'[{header}] - battery is under {UPS_SUSPEND}, now suspending...')
+                if ARG == '--pause':
+                    suspend_vm_ct()
+                logger.info(f'[{header}] - All VM has been suspended.')
                 vm_suspended = True
                 break
     time.sleep(3)
@@ -121,15 +124,16 @@ if vm_suspended:
     while ups_charge < 100:
         ups_charge = get_ups_charge()
         if ups_charge > old_ups_charge:
-            logger.info(f'[{UPS_NAME}] - battery is charging, charge: {ups_charge} (low: {UPS_LOW}, warning: {UPS_WARNING})')
+            logger.info(f'[{header}] - battery is charging, charge: {ups_charge} (low: {UPS_LOW}, warning: {UPS_WARNING})')
         elif ups_charge < old_ups_charge:
-            logger.info(f'[{UPS_NAME}] - battery is on battery again, now turn over to another instance.')
+            logger.info(f'[{header}] - battery is on battery again, now turn over to another instance.')
             sys.exit(0)
         time.sleep(3)
         old_ups_charge = ups_charge
 
-    logger.info(f'[{UPS_NAME}] - battery is full, now resuming...')
-    resume_vm_ct()
-    logger.info(f'[{UPS_NAME}] - UPS recoverd & all VM has been resumed.')
+    logger.info(f'[{header}] - battery is full, now resuming...')
+    if ARG == '--pause':
+        resume_vm_ct()
+    logger.info(f'[{header}] - UPS recoverd & all VM has been resumed.')
 else:
-    logger.info(f'[{UPS_NAME}] - UPS recoverd and full.')
+    logger.info(f'[{header}] - UPS recoverd and full.')
