@@ -1,4 +1,3 @@
-
 import re
 import os
 import sys
@@ -24,7 +23,7 @@ ONBATT_TIMEOUT = 3 * 180        # 如果3分钟UPS还是100%，则认为是FAKE 
 def get_ups_charge():
     global UPS_NAME, UPS_LOW, UPS_WARNING
 
-    ups_status = run('upsc ups@dsm')
+    ups_status = run('upsc ups@10.8.9.2')
     #print(ups_status)
 
     global UPS_NAME
@@ -51,10 +50,10 @@ def get_ups_charge():
     return ups_charge
 
 
-header = ('(DRY MODE) ' if ARG == '--pause' else '') + f'[{UPS_NAME}]'
-logger.info(f'{header} monitor starts: arg - {ARG}')
-logger.info(f'(To suspend VM & CT, use --pause)')
 ups_charge = get_ups_charge()
+header = ('' if ARG == '--pause' else '\x1b[5;30;47[(DRY MODE)m]\x1b[0m ') + f'\x1b[5;30;43m[{UPS_NAME}]\x1b[0m'
+logger.info(f'{header} monitor starts: arg - {ARG}')
+logger.warning(f'**(To suspend VM & CT, use --pause)**')
 logger.info('{} battery charge - {} (low - {}, warning - {})'.format(header, ups_charge, UPS_LOW, UPS_WARNING))
 
 detect_on_battery = 0
@@ -65,6 +64,7 @@ while detect_on_battery < ONBATT_TIMEOUT:
     time.sleep(3)
     detect_on_battery += 3
     #print(detect_on_battery, ONBATT_TIMEOUT, detect_on_battery < ONBATT_TIMEOUT)
+    print('=', end='', flush=True)
     
 if detect_on_battery >= ONBATT_TIMEOUT:
     logger.info('{} not on battery within {} seconds, now exiting.'.format(header, ONBATT_TIMEOUT))
@@ -107,10 +107,10 @@ while ups_charge < 100:
     elif ups_charge < old_ups_charge:
         logger.info(f'[{header}] - battery is discharging: {ups_charge} (low: {UPS_LOW}, warning: {UPS_WARNING})')
         if ups_charge < UPS_WARNING:
-            logger.warn(f'[{header}] - battery is under warning, charge: {ups_charge} (low: {UPS_LOW}, warning: {UPS_WARNING})')
-            logger.warn(f'[{header}] -     pve will be suspended at {UPS_SUSPEND}')
+            logger.warning(f'[{header}] - battery is under warning, charge: {ups_charge} (low: {UPS_LOW}, warning: {UPS_WARNING})')
+            logger.warning(f'[{header}] -     pve will be suspended at {UPS_SUSPEND}')
             if ups_charge < UPS_SUSPEND:
-                logger.warn(f'[{header}] - battery is under {UPS_SUSPEND}, now suspending...')
+                logger.warning(f'[{header}] - battery is under {UPS_SUSPEND}, now suspending...')
                 if ARG == '--pause':
                     suspend_vm_ct()
                 logger.info(f'[{header}] - All VM has been suspended.')
