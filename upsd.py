@@ -103,9 +103,9 @@ old_ups_charge = 0
 while ups_charge < 100:
     ups_charge = get_ups_charge()
     if ups_charge > old_ups_charge:
-        logger.info(f'[{header}] - battery is charging: {ups_charge} (low: {UPS_LOW}, warning: {UPS_WARNING})')
+        logger.debug(f'[{header}] - battery is charging: {ups_charge} (low: {UPS_LOW}, warning: {UPS_WARNING})')
     elif ups_charge < old_ups_charge:
-        logger.info(f'[{header}] - battery is discharging: {ups_charge} (low: {UPS_LOW}, warning: {UPS_WARNING})')
+        logger.debug(f'[{header}] - battery is discharging: {ups_charge} (low: {UPS_LOW}, warning: {UPS_WARNING})')
         if ups_charge < UPS_WARNING:
             logger.warning(f'[{header}] - battery is under warning, charge: {ups_charge} (low: {UPS_LOW}, warning: {UPS_WARNING})')
             logger.warning(f'[{header}] -     pve will be suspended at {UPS_SUSPEND}')
@@ -124,9 +124,9 @@ if vm_suspended:
     while ups_charge < 100:
         ups_charge = get_ups_charge()
         if ups_charge > old_ups_charge:
-            logger.info(f'[{header}] - battery is charging, charge: {ups_charge} (low: {UPS_LOW}, warning: {UPS_WARNING})')
+            logger.debug(f'[{header}] - battery is charging, charge: {ups_charge} (low: {UPS_LOW}, warning: {UPS_WARNING})')
         elif ups_charge < old_ups_charge:
-            logger.info(f'[{header}] - battery is on battery again, now turn over to another instance.')
+            logger.debug(f'[{header}] - battery is on battery again, now turn over to another instance.')
             sys.exit(0)
         time.sleep(3)
         old_ups_charge = ups_charge
