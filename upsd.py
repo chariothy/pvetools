@@ -12,6 +12,7 @@ REG_UPS_CHARGE_LOW = re.compile(r'battery\.charge\.low\:\s+(\d+)')
 REG_UPS_CHARGE_WARNING = re.compile(r'battery\.charge\.warning\:\s+(\d+)')
 REG_UPS_MFR = re.compile(r'device\.mfr\:\s+(\w+)')
 REG_UPS_MODEL = re.compile(r'device\.model\:\s+([\w\- \d]+)')	#NOTICE: Space in [ ]
+REG_NUT_SERVICE = re.compile(r'nut-monitor.service\s+\w+\s+\w+\s+(\w+)')
 
 ARG = sys.argv[-1]
 UPS_NAME = ''
@@ -21,7 +22,7 @@ UPS_SUSPEND = None
 ONBATT_TIMEOUT = 3 * 180        # 如果3分钟UPS还是100%，则认为是FAKE SIGNAL
 
 def get_ups_charge():
-    global UPS_NAME, UPS_LOW, UPS_WARNING
+    global UPS_NAME, UPS_LOW, UPS_WARNING, UPS_SUSPEND
 
     ups_status = run('upsc ups@10.8.9.2')
     #print(ups_status)
@@ -46,16 +47,23 @@ def get_ups_charge():
         match = REG_UPS_CHARGE_WARNING.findall(ups_status)
         UPS_WARNING = int(match[0])
         
-        UPS_SUSPEND = (UPS_WARNING - UPS_LOW) * 0.6 + UPS_LOW
+        UPS_SUSPEND = UPS_WARNING * 0.8
     return ups_charge
 
-
 ups_charge = get_ups_charge()
-header = ('' if ARG == '--pause' else '\x1b[5;30;47[(DRY MODE)m]\x1b[0m ') + f'\x1b[5;30;43m[{UPS_NAME}]\x1b[0m'
+header = ('' if ARG == '--pause' else '\x1b[5;30;47m[(DRY MODE)]\x1b[0m ') + f'\x1b[5;30;43m[{UPS_NAME}]\x1b[0m'
 logger.info(f'{header} monitor starts: arg - {ARG}')
 logger.warning(f'**(To suspend VM & CT, use --pause)**')
 logger.info('{} battery charge - {} (low - {}, warning - {})'.format(header, ups_charge, UPS_LOW, UPS_WARNING))
 
+nut_monitor_service = run('systemctl | grep nut-monitor')
+match = REG_NUT_SERVICE.findall(nut_monitor_service)
+if match:
+    nut_monitor_service_status = match[0]
+    if nut_monitor_service_status == 'running':
+        logger.warning('nut-montor service is running, now stop it.')
+        run('systemctl stop nut-monitor', echo=True)
+        
 detect_on_battery = 0
 while detect_on_battery < ONBATT_TIMEOUT:
     ups_charge = get_ups_charge()
@@ -77,6 +85,7 @@ list_vm()
 list_ct()
 #print(ACTIVE_CT)
 
+print()
 logger.info('{} is on battery, charge - {} (low - {}, warning - {})'.format(header, ups_charge, UPS_LOW, UPS_WARNING))
 
 def suspend_vm_ct():
@@ -102,38 +111,44 @@ vm_suspended = False
 old_ups_charge = 0
 while ups_charge < 100:
     ups_charge = get_ups_charge()
+    bar = '=' * ups_charge
+    print(f'< Battery is discharging: {ups_charge} {bar}', flush=True)
     if ups_charge > old_ups_charge:
-        logger.debug(f'[{header}] - battery is charging: {ups_charge} (low: {UPS_LOW}, warning: {UPS_WARNING})')
+        logger.debug(f'{header} - battery is charging: {ups_charge} (low: {UPS_LOW}, warning: {UPS_WARNING})')
     elif ups_charge < old_ups_charge:
-        logger.debug(f'[{header}] - battery is discharging: {ups_charge} (low: {UPS_LOW}, warning: {UPS_WARNING})')
+        logger.debug(f'{header} - battery is discharging: {ups_charge} (low: {UPS_LOW}, warning: {UPS_WARNING})')
         if ups_charge < UPS_WARNING:
-            logger.warning(f'[{header}] - battery is under warning, charge: {ups_charge} (low: {UPS_LOW}, warning: {UPS_WARNING})')
-            logger.warning(f'[{header}] -     pve will be suspended at {UPS_SUSPEND}')
+            logger.warning(f'{header} - battery is under warning, charge: {ups_charge} (low: {UPS_LOW}, warning: {UPS_WARNING})')
+            logger.warning(f'{header} -     pve will be suspended at {UPS_SUSPEND}')
             if ups_charge < UPS_SUSPEND:
-                logger.warning(f'[{header}] - battery is under {UPS_SUSPEND}, now suspending...')
+                logger.warning(f'{header} - battery is under {UPS_SUSPEND}, now suspending...')
                 if ARG == '--pause':
                     suspend_vm_ct()
-                logger.info(f'[{header}] - All VM has been suspended.')
+                logger.info(f'{header} - All VM has been suspended.')
                 vm_suspended = True
                 break
-    time.sleep(3)
+    time.sleep(1)
     old_ups_charge = ups_charge
 
 if vm_suspended:
     old_ups_charge = 0
     while ups_charge < 100:
         ups_charge = get_ups_charge()
+        bar = '=' * ups_charge
+        print(f'> Battery is charging: {ups_charge} {bar}', flush=True)
         if ups_charge > old_ups_charge:
-            logger.debug(f'[{header}] - battery is charging, charge: {ups_charge} (low: {UPS_LOW}, warning: {UPS_WARNING})')
+            logger.debug(f'{header} - battery is charging, charge: {ups_charge} (low: {UPS_LOW}, warning: {UPS_WARNING})')
         elif ups_charge < old_ups_charge:
-            logger.debug(f'[{header}] - battery is on battery again, now turn over to another instance.')
+            logger.debug(f'{header} - battery is on battery again, now turn over to another instance.')
             sys.exit(0)
-        time.sleep(3)
+        time.sleep(5)
         old_ups_charge = ups_charge
 
-    logger.info(f'[{header}] - battery is full, now resuming...')
+    logger.info(f'{header} - battery is full, now resuming...')
     if ARG == '--pause':
         resume_vm_ct()
-    logger.info(f'[{header}] - UPS recoverd & all VM has been resumed.')
+    logger.info(f'{header} - UPS recoverd & all VM has been resumed.')
 else:
-    logger.info(f'[{header}] - UPS recoverd and full.')
+    logger.info(f'{header} - UPS recoverd and full.')
+
+run('systemctl start nut-monitor', echo=True)
